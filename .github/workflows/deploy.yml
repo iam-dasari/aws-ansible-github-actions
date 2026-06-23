@@ -45,115 +45,107 @@ jobs:
 
       - name: Terraform Init
         working-directory: terraform
+
         run: terraform init
 
-      - name: Terraform Init
+      - name: Terraform Validate
         working-directory: terraform
-        run: terraform destroy --auto-approve
+        run: terraform validate
 
-      # - name: Terraform Init
-      #   working-directory: terraform
+      - name: Terraform Plan
+        working-directory: terraform
+        run: terraform plan -out=tfplan
 
-      #   run: terraform init
+      - name: Terraform Apply
+        working-directory: terraform
+        run: terraform apply -auto-approve tfplan
 
-      # - name: Terraform Validate
-      #   working-directory: terraform
-      #   run: terraform validate
+      #################################################
+      # WAIT FOR EC2
+      #################################################
 
-      # - name: Terraform Plan
-      #   working-directory: terraform
-      #   run: terraform plan -out=tfplan
+      - name: Wait For EC2
+        run: sleep 120
 
-      # - name: Terraform Apply
-      #   working-directory: terraform
-      #   run: terraform apply -auto-approve tfplan
+      #################################################
+      # PYTHON
+      #################################################
 
-      # #################################################
-      # # WAIT FOR EC2
-      # #################################################
+      - name: Setup Python
+        uses: actions/setup-python@v5
 
-      # - name: Wait For EC2
-      #   run: sleep 120
+        with:
+          python-version: "3.11"
 
-      # #################################################
-      # # PYTHON
-      # #################################################
+      #################################################
+      # INSTALL ANSIBLE
+      #################################################
 
-      # - name: Setup Python
-      #   uses: actions/setup-python@v5
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
 
-      #   with:
-      #     python-version: "3.11"
+          pip install ansible
 
-      # #################################################
-      # # INSTALL ANSIBLE
-      # #################################################
+          pip install boto3
 
-      # - name: Install Dependencies
-      #   run: |
-      #     python -m pip install --upgrade pip
+          pip install botocore
 
-      #     pip install ansible
+      - name: Install AWS Collection
+        run: |
+          ansible-galaxy collection install amazon.aws
 
-      #     pip install boto3
+      #################################################
+      # SSH KEY
+      #################################################
 
-      #     pip install botocore
+      - name: Configure SSH
+        run: |
 
-      # - name: Install AWS Collection
-      #   run: |
-      #     ansible-galaxy collection install amazon.aws
+          mkdir -p ~/.ssh
 
-      # #################################################
-      # # SSH KEY
-      # #################################################
+          echo "${{ secrets.EC2_PRIVATE_KEY }}" > ~/.ssh/id_rsa
 
-      # - name: Configure SSH
-      #   run: |
+          chmod 600 ~/.ssh/id_rsa
 
-      #     mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
 
-      #     echo "${{ secrets.EC2_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+      #################################################
+      # VERIFY INVENTORY
+      #################################################
 
-      #     chmod 600 ~/.ssh/id_rsa
+      - name: Verify Inventory
+        working-directory: ansible
 
-      #     ssh-keyscan github.com >> ~/.ssh/known_hosts
+        run: |
+          ansible-inventory -i aws_ec2.yml --graph
 
-      # #################################################
-      # # VERIFY INVENTORY
-      # #################################################
+      #################################################
+      # TEST CONNECTION
+      #################################################
 
-      # - name: Verify Inventory
-      #   working-directory: ansible
+      - name: Test SSH Connectivity
+        working-directory: ansible
 
-      #   run: |
-      #     ansible-inventory -i aws_ec2.yml --graph
+        run: |
+          ansible role_web -m ping
 
-      # #################################################
-      # # TEST CONNECTION
-      # #################################################
+      #################################################
+      # INSTALL NGINX
+      #################################################
 
-      # - name: Test SSH Connectivity
-      #   working-directory: ansible
+      - name: Deploy Nginx
+        working-directory: ansible
 
-      #   run: |
-      #     ansible role_web -m ping
+        run: |
+          ansible-playbook site.yml
 
-      # #################################################
-      # # INSTALL NGINX
-      # #################################################
+      #################################################
+      # VERIFY NGINX
+      #################################################
 
-      # - name: Deploy Nginx
-      #   working-directory: ansible
+      - name: Verify Deployment
+        working-directory: ansible
 
-      #   run: |
-      #     ansible-playbook site.yml
-
-      # #################################################
-      # # VERIFY NGINX
-      # #################################################
-
-      # - name: Verify Deployment
-      #   working-directory: ansible
-
-      #   run: |
-      #     ansible role_web -m shell -a "systemctl status nginx --no-pager"
+        run: |
+          ansible role_web -m shell -a "systemctl status nginx --no-pager"

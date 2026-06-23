@@ -27,7 +27,7 @@
 
 resource "aws_instance" "web" {
 
-    count = var.instance_count
+    count = 3
 
     ami           = "ami-0521cb2d60cfbb1a6" # Amazon Linux 2023
     instance_type = var.instance_type
