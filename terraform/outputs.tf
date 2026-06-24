@@ -1,7 +1,7 @@
 output "instance_ids" {
-    value = aws_instance.web[*].id
+    value = aws_instance.ec2[*].id
 }
 
 output "private_ips" {
-    value = aws_instance.web[*].private_ip
+    value = aws_instance.ec2[*].private_ip
 }
